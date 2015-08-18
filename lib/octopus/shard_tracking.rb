@@ -26,11 +26,17 @@ module Octopus
 
     # Adds run_on_shard method, but does not implement current_shard method
     def run_on_shard(&block)
+      Rails.logger.info self
       if (cs = current_shard)
-        r = ActiveRecord::Base.connection_proxy.run_queries_on_shard(cs, &block)
-        # Use a case statement to avoid any path through ActiveRecord::Delegation's
-        # respond_to? code. We want to avoid the respond_to? code because it can have
-        # the side effect of causing a call to load_target
+        Rails.logger.info cs
+        if !@klass.blank?
+          r = @klass.connection_proxy.run_queries_on_shard(cs, &block)
+        elsif !@owner.blank?
+          Rails.logger.info @owner
+          r = @owner.class.connection_proxy.run_queries_on_shard(cs, &block)
+        else
+          r = ActiveRecord::Base.connection_proxy.run_queries_on_shard(cs, &block)
+        end
         r = Octopus::RelationProxy.new(cs, r) if ActiveRecord::Relation === r and not Octopus::RelationProxy === r
         r
       else
